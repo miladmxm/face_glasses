@@ -11,6 +11,7 @@ const App = () => {
   const faceLandmarkerRef = useRef();
   const videoRef = useRef();
   const canvasRef = useRef();
+  const widthAndHeightOfScean = useRef()
   const [sunglassesMesh, setSunglassesMesh] = useState();
   let lastVideoTime = -1;
 
@@ -34,22 +35,25 @@ const App = () => {
           const leftEye = faceLandmarkerResult.faceLandmarks[0][130];
           const rightEye = faceLandmarkerResult.faceLandmarks[0][359];
           const eyeCenter = faceLandmarkerResult.faceLandmarks[0][168];
-          
           const eyeDistance = Math.sqrt(
             Math.pow(rightEye.x - leftEye.x, 2) +
-              Math.pow(rightEye.y - leftEye.y, 2)
+            Math.pow(rightEye.y - leftEye.y, 2)
           );
           const scaleMultiplier = eyeDistance;
           
-          const scaleX = -0.01;
-          const scaleY = -0.01;
+          const scaleX = -0.1;
+          const scaleY = -0.1;
           const offsetX = 0.0;
-          const offsetY = -0.01;
-
-          glassesMesh.position.x = eyeCenter.x
+          const offsetY = -0.1;
+          // console.log(eyeCenter.x*100)
+          // glassesMesh.position.x = -eyeCenter.x
+          glassesMesh.position.x =-(widthAndHeightOfScean.current[0]-((widthAndHeightOfScean.current[0]*2) / 100)*((1-eyeCenter.x)*100))
+          // glassesMesh.position.x = ((widthAndHeightOfScean.current[0]/100)*((1-eyeCenter.x)*100))
+          // glassesMesh.position.x = -eyeCenter.x
             // (eyeCenter.x - video.videoWidth / 2) * scaleX + offsetX;
-          glassesMesh.position.y = eyeCenter.y
-          //   (eyeCenter.y - video.videoHeight / 2) * scaleY + offsetY;
+          glassesMesh.position.y =-(widthAndHeightOfScean.current[1]-((widthAndHeightOfScean.current[1]*2) / 100)*((1-eyeCenter.y)*100))
+          // glassesMesh.position.y =-eyeCenter.y
+            // (eyeCenter.y - video.videoHeight / 2) * scaleY + offsetY;
           glassesMesh.scale.set(
             scaleMultiplier,
             scaleMultiplier,
@@ -57,12 +61,12 @@ const App = () => {
           );
           // glassesMesh.position.z = 1;
 
-          // const eyeLine = new THREE.Vector2(
-          //   rightEye[0] - leftEye[0],
-          //   rightEye[1] - leftEye[1]
-          // );
-          // const rotationZ = Math.atan2(eyeLine.y, eyeLine.x);
-          // glassesMesh.rotation.z = rotationZ;
+          const eyeLine = new THREE.Vector2(
+            rightEye.x - leftEye.x,
+            rightEye.y - leftEye.y
+          );
+          const rotationZ = Math.atan2(eyeLine.y, eyeLine.x);
+          glassesMesh.rotation.z = rotationZ;
         }
       }
     }
@@ -76,7 +80,7 @@ const App = () => {
       const height = canvasRef.current.clientHeight;
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-      camera.position.z = 5;
+      camera.position.z = 1;
       const renderer = new THREE.WebGLRenderer({
         canvas: canvasRef.current,
         alpha: true,
@@ -96,6 +100,11 @@ const App = () => {
         });
         const glasses = new THREE.Mesh(geometry, material);
         scene.add(glasses);
+
+        const vFOV = (camera.fov * Math.PI) / 180;
+        const heightOfScean = 2 * Math.tan(vFOV / 2) * Math.abs(camera.position.z);
+        const widthOfScean = heightOfScean * camera.aspect;
+        widthAndHeightOfScean.current = [widthOfScean/2,heightOfScean/2]
         setSunglassesMesh(glasses);
         resolve(glasses);
       });
@@ -115,6 +124,7 @@ const App = () => {
       outputFacialTransformationMatrixes: true,
       outputFaceBlendshapes: true,
     });
+    const {width,height} = videoRef.current.stream.getVideoTracks()[0].getSettings()
     canvasRef.current.width = videoRef.current.video.clientWidth;
     canvasRef.current.height = videoRef.current.video.clientHeight;
     const glasses = await initThreejs();
@@ -129,21 +139,26 @@ const App = () => {
   // }, [videoRef.current]);
 
   return (
-    <div className="w-fit h-full relative">
-      {/* <Webcam
+    <div className="flex justify-center w-screen h-screen items-center relative">
+      <Webcam
         mirrored
+        // height={1000}
         ref={videoRef}
-        className="max-h-full max-w-full aspect-video"
+        audio={false}
+        videoConstraints={{ width: { min: 480 },
+        height: { min: 720 },
+        aspectRatio: 16/9}}
+        className=""
         onUserMedia={() => {
           initMP();
         }}
-      /> */}
+      />
 
-      <canvas
-        ref={canvasRef}
-        className="absolute w-auto h-auto left-0 top-0 right-0 bottom-0 z-10"
-      ></canvas>
-      <video
+    <canvas
+      ref={canvasRef}
+      className="absolute aspect-video inset-auto z-10"
+    ></canvas>
+      {/* <video
         ref={(r) => {
           videoRef.current = { video: r };
         }}
@@ -154,9 +169,10 @@ const App = () => {
         onClick={initMP}
       >
         <source src="/video.mp4" />
-      </video>
+      </video> */}
     </div>
   );
 };
 
 export default App;
+
